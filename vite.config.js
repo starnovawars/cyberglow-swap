@@ -1,13 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Configuración de Vite para Cyberglow Swap
+// ⚙️ Configuración para desplegar correctamente en GitHub Pages
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 5173,
-  },
+  base: '/cyberglow-swap/', // 👈 Usa el nombre exacto de tu repositorio aquí
   build: {
     outDir: 'dist',
+  },
+  server: {
+    port: 5173,
+    open: true,
   },
 })
