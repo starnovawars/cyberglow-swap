@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { getWallets } from "@iota/wallet-standard";
-import { DEFAULT_RPC, ROUTER_ADDRESS, ROUTER_ABI } from "./config/constants";
+import { DEFAULT_RPC, ROUTER_ADDRESS, ROUTER_ABI } from "../constants";
+
 
 // ABI parcial para token ERC20 (balanceOf, decimals)
 const ERC20_ABI = [
