@@ -22,10 +22,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cyberdark text-cyberlight flex flex-col items-center justify-center p-6">
-      <h1 className="text-4xl font-bold mb-4 text-cyberblue drop-shadow-glow">
-        🚀 Cyberglow Swap
-      </h1>
+      {/* LOGO + TÍTULO */}
+      <div className="flex flex-col items-center mb-6">
+        <img
+          src="/cyberglow-logo.png"
+          alt="Cyberglow Logo"
+          className="w-20 h-20 drop-shadow-glow mb-3"
+        />
+        <img
+          src="/cyberglow-title.png"
+          alt="Cyberglow Title"
+          className="h-10 object-contain"
+        />
+      </div>
 
+      {/* BOTÓN DE CONEXIÓN */}
       {!connected ? (
         <button
           onClick={connectWallet}
