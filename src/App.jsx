@@ -1,122 +1,142 @@
-import React, { useState } from "react";
-import "./styles/globals.css";
+import React, { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { getWallets } from "@iota/wallet-standard";
+import { DEFAULT_RPC, ROUTER_ADDRESS, ROUTER_ABI } from "./config/constants";
+
+// ABI parcial para token ERC20 (balanceOf, decimals)
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)"
+];
 
 function App() {
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [fromToken, setFromToken] = useState("IOTA");
-  const [toToken, setToToken] = useState("SMR");
-  const [amount, setAmount] = useState("");
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
+  const [account, setAccount] = useState("");
+  const [balance, setBalance] = useState("");
+  const [tokenAddress, setTokenAddress] = useState(""); // dirección del token ERC20 que quieras verificar
   const [status, setStatus] = useState("");
 
-  // === Conectar MetaMask ===
-  async function connectWallet() {
-    if (window.ethereum) {
-      try {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        setWalletConnected(true);
-        setStatus("✅ Wallet conectada");
-      } catch (error) {
-        setStatus("❌ Error al conectar la wallet");
+  // Conectar MetaMask
+  async function connectMetaMask() {
+    if (!window.ethereum) {
+      setStatus("MetaMask no detectada");
+      return;
+    }
+    try {
+      const ethProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+      await ethProvider.send("eth_requestAccounts", []);
+      const ethSigner = ethProvider.getSigner();
+      const addr = await ethSigner.getAddress();
+      setProvider(ethProvider);
+      setSigner(ethSigner);
+      setAccount(addr);
+      setStatus("MetaMask conectada: " + addr);
+    } catch (e) {
+      console.error(e);
+      setStatus("Error MetaMask: " + (e.message || e));
+    }
+  }
+
+  // Conectar IOTA Wallet
+  async function connectIotaWallet() {
+    try {
+      const wallets = await getWallets().get();
+      if (!wallets || wallets.length === 0) {
+        setStatus("No se encontró IOTA Wallet");
+        return;
       }
-    } else {
-      setStatus("⚠️ MetaMask no detectada");
+      const wallet = wallets[0];
+      if (wallet.features && wallet.features["standard:connect"]) {
+        await wallet.features["standard:connect"].connect();
+      }
+      // Obtener cuentas
+      const accounts = wallet.accounts || (wallet.getAccounts && await wallet.getAccounts());
+      if (!accounts || accounts.length === 0) {
+        setStatus("Wallet IOTA no devolvió cuentas");
+        return;
+      }
+      const acc = accounts[0];
+      setStatus("IOTA Wallet conectada: " + (acc.address || acc.id || ""));
+
+      // Si la wallet puede exponer provider EVM:
+      if (wallet.getProvider) {
+        const evmChain = acc.chains && acc.chains.find(c => String(c).toLowerCase().includes("evm"));
+        if (evmChain) {
+          const raw = await wallet.getProvider({ chain: evmChain });
+          const ethProvider = new ethers.providers.Web3Provider(raw, "any");
+          const ethSigner = ethProvider.getSigner();
+          const addr = await ethSigner.getAddress();
+          setProvider(ethProvider);
+          setSigner(ethSigner);
+          setAccount(addr);
+          setStatus(s => s + " (provider EVM activo)");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("Error IOTA Wallet: " + (e.message || e));
     }
   }
 
-  // === Simular Swap ===
-  async function swapTokens() {
-    if (!walletConnected) {
-      setStatus("⚠️ Conecta tu wallet primero");
-      return;
+  // Obtener balance ERC20 del tokenAddress
+  async function fetchTokenBalance() {
+    try {
+      if (!provider || !account) return;
+      if (!tokenAddress) {
+        setBalance("");
+        return;
+      }
+      const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      const rawBal = await token.balanceOf(account);
+      const decimals = await token.decimals();
+      const formatted = ethers.utils.formatUnits(rawBal, decimals);
+      setBalance(formatted);
+    } catch (e) {
+      console.error(e);
+      setStatus("Error al obtener balance: " + (e.message || e));
     }
-    if (!amount) {
-      setStatus("⚠️ Ingresa una cantidad");
-      return;
-    }
-
-    // Simulación: cambiar tokens
-    setStatus("⏳ Ejecutando swap...");
-    setTimeout(() => {
-      setStatus(`✅ Swap completado: ${amount} ${fromToken} → ${toToken}`);
-      setAmount("");
-    }, 2000);
   }
+
+  // Cada vez que cambien provider/account/token, recargar balance
+  useEffect(() => {
+    fetchTokenBalance();
+  }, [provider, account, tokenAddress]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center p-6">
-      <img
-        src="/cyberglow-logo.png"
-        alt="Cyberglow Logo"
-        className="w-32 mb-6"
-      />
-      <h1 className="text-4xl font-bold mb-8 text-cyan-400 drop-shadow-lg">
-        Cyberglow Swap ⚡
-      </h1>
+    <div className="min-h-screen p-6 bg-cyberdark text-cyberlight flex flex-col items-center">
+      <h1 className="text-3xl font-bold mb-4">Cyberglow Swap</h1>
 
-      {!walletConnected ? (
-        <button
-          onClick={connectWallet}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-6 py-3 rounded-2xl shadow-lg mb-4"
-        >
-          Conectar Wallet
-        </button>
-      ) : (
-        <p className="mb-4 text-green-400">Wallet conectada ✅</p>
-      )}
-
-      <div className="bg-[#0a1325]/70 p-6 rounded-2xl shadow-xl backdrop-blur-lg w-full max-w-sm">
-        <div className="mb-4">
-          <label className="block text-sm text-cyan-300 mb-1">De</label>
-          <select
-            value={fromToken}
-            onChange={(e) => setFromToken(e.target.value)}
-            className="w-full p-2 rounded-md bg-[#08111e] border border-cyan-700 text-white"
-          >
-            <option>IOTA</option>
-            <option>SMR</option>
-            <option>USDT</option>
-          </select>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm text-cyan-300 mb-1">A</label>
-          <select
-            value={toToken}
-            onChange={(e) => setToToken(e.target.value)}
-            className="w-full p-2 rounded-md bg-[#08111e] border border-cyan-700 text-white"
-          >
-            <option>SMR</option>
-            <option>IOTA</option>
-            <option>USDT</option>
-          </select>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm text-cyan-300 mb-1">Cantidad</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="w-full p-2 rounded-md bg-[#08111e] border border-cyan-700 text-white"
-          />
-        </div>
-
-        <button
-          onClick={swapTokens}
-          className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold px-6 py-3 rounded-2xl shadow-lg hover:scale-105 transition-transform"
-        >
-          Swap
-        </button>
-
-        {status && (
-          <p className="mt-4 text-sm text-cyan-300 animate-pulse">{status}</p>
-        )}
+      <div className="flex gap-4 mb-4">
+        <button onClick={connectMetaMask} className="bg-cyberblue px-4 py-2 rounded">MetaMask</button>
+        <button onClick={connectIotaWallet} className="bg-cyberaccent px-4 py-2 rounded">IOTA Wallet</button>
       </div>
 
-      <footer className="mt-8 text-xs text-cyan-700">
-        Cyberglow Swap © 2025 — IOTA EVM Integration
-      </footer>
+      {account && (
+        <div className="mb-4">
+          <p>Cuenta conectada:</p>
+          <p className="font-mono">{account}</p>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <label className="block mb-1">Token ERC20 (dirección)</label>
+        <input
+          type="text"
+          value={tokenAddress}
+          onChange={e => setTokenAddress(e.target.value)}
+          placeholder="0x..."
+          className="p-2 w-full max-w-md rounded bg-[#08111e] text-white"
+        />
+      </div>
+
+      {balance !== "" && (
+        <div className="mb-6">
+          <p>Balance: <span className="font-semibold">{balance}</span></p>
+        </div>
+      )}
+
+      <p className="text-sm text-cyan-300">{status}</p>
     </div>
   );
 }
