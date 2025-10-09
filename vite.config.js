@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/cyberglow-swap/', // 👈 Coincide con el nombre del repo
+  base: '/cyberglow-swap/',
   build: {
-    outDir: 'dist',
-  },
+    outDir: 'dist'
+  }
 })
