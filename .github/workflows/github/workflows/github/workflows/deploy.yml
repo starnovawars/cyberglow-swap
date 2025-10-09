@@ -1,4 +1,4 @@
-name: Deploy Cyberglow Swap to GitHub Pages
+name: Cyberglow Swap Deployment
 
 on:
   push:
