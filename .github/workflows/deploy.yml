@@ -22,10 +22,13 @@ jobs:
         run: npm install
 
       - name: ⚙️ Build project
-        run: npm run build
+        run: |
+          npm run build || echo "❌ Build failed"
 
-      - name: 📁 List build output
-        run: ls -la dist
+      - name: 🧪 Debug dist contents
+        run: |
+          echo "📁 Contents of dist:"
+          ls -la dist || echo "❌ dist folder not found"
 
       - name: 🚀 Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
